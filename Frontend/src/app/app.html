@@ -1,0 +1,416 @@
+<div class="dashboard-wrapper">
+  <div *ngIf="!isLoggedIn" class="auth-wrapper fade-in">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <i class="fa-solid fa-gem"></i>
+      </div>
+      <h1 class="auth-title">AURA</h1>
+      <p class="auth-subtitle">STOCK PORTFOLIO SUITE</p>
+
+      <div *ngIf="authErrorMessage" class="alert alert-error fade-in">
+        <div class="alert-content">
+          <i class="fa-solid fa-circle-exclamation alert-icon"></i>
+          <span>{{ authErrorMessage }}</span>
+        </div>
+      </div>
+
+      <div *ngIf="authSuccessMessage" class="alert alert-success fade-in">
+        <div class="alert-content">
+          <i class="fa-solid fa-circle-check alert-icon"></i>
+          <span>{{ authSuccessMessage }}</span>
+        </div>
+      </div>
+
+      <form (ngSubmit)="handleAuthSubmit()" class="auth-form">
+        <h2 class="auth-form-title">{{ authMode === 'login' ? 'Iniciar Sessão' : 'Criar Conta' }}</h2>
+
+        <div class="form-group">
+          <label for="auth-username">Nome de Utilizador</label>
+          <div class="input-container">
+            <i class="fa-solid fa-user input-icon"></i>
+            <input type="text" id="auth-username" name="authUsername" [(ngModel)]="authUsername" placeholder="Digite o seu utilizador" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="auth-password">Palavra-passe</label>
+          <div class="input-container">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="auth-password" name="authPassword" [(ngModel)]="authPassword" placeholder="Digite a sua palavra-passe" required />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-gold btn-block" [disabled]="authIsLoading">
+          <span *ngIf="!authIsLoading">
+            <i class="fa-solid" [ngClass]="authMode === 'login' ? 'fa-right-to-bracket' : 'fa-user-plus'"></i>
+            {{ authMode === 'login' ? 'Entrar' : 'Registar Conta' }}
+          </span>
+          <span *ngIf="authIsLoading" class="btn-spinner"></span>
+        </button>
+
+        <div class="auth-toggle">
+          <p *ngIf="authMode === 'login'">
+            Ainda não tem conta?
+            <a href="javascript:void(0)" (click)="switchAuthMode('signup')">Registe-se aqui</a>
+          </p>
+          <p *ngIf="authMode === 'signup'">
+            Já tem uma conta?
+            <a href="javascript:void(0)" (click)="switchAuthMode('login')">Faça login aqui</a>
+          </p>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div *ngIf="isLoggedIn">
+    <header class="app-header">
+      <div class="brand-container">
+        <div class="logo-gold"><i class="fa-solid fa-gem"></i></div>
+        <div class="brand-text">
+          <h1 class="brand-title">AURA</h1>
+          <p class="brand-subtitle">STOCK PORTFOLIO MONITORING</p>
+        </div>
+      </div>
+
+        <div class="header-actions">
+        <span class="user-welcome">
+          <i class="fa-solid fa-circle-user"></i> Olá, <span class="username-highlight">{{ currentUsername }}</span>
+        </span>
+
+        <div class="view-switcher">
+          <button class="btn btn-secondary view-toggle" [class.view-toggle-active]="activeView === 'portfolio'" (click)="switchView('portfolio')">
+            <i class="fa-solid fa-briefcase"></i> Carteira
+          </button>
+          <button class="btn btn-secondary view-toggle" [class.view-toggle-active]="activeView === 'market'" (click)="switchView('market')">
+            <i class="fa-solid fa-chart-line"></i> Mercado
+          </button>
+        </div>
+
+        
+
+        <button class="btn btn-icon-only" (click)="refreshCurrentView()" [title]="activeView === 'market' ? 'Atualizar Mercado' : 'Atualizar Carteira'">
+          <i class="fa-solid fa-rotate" [class.fa-spin]="activeView === 'market' ? marketLoading : isLoading"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="logout()" title="Terminar Sessão">
+          <i class="fa-solid fa-right-from-bracket"></i> Sair
+        </button>
+      </div>
+    </header>
+
+    <div *ngIf="activeView === 'portfolio'">
+      <div *ngIf="errorMessage" class="alert alert-error fade-in">
+        <div class="alert-content">
+          <i class="fa-solid fa-circle-exclamation alert-icon"></i>
+          <span>{{ errorMessage }}</span>
+        </div>
+        <button class="btn-text" (click)="loadPortfolio()">Tentar Novamente</button>
+      </div>
+
+      <div *ngIf="isLoading && portfolio.length === 0" class="loading-container">
+        <div class="gold-spinner"></div>
+        <p>A sincronizar com a base de dados e cotações live...</p>
+      </div>
+
+      <main class="dashboard-content" *ngIf="!isLoading || portfolio.length > 0">
+        <section class="kpi-grid">
+          <div class="kpi-card fade-in">
+            <div class="kpi-header">
+              <span class="kpi-title">TOTAL INVESTIDO</span>
+              <div class="kpi-icon"><i class="fa-solid fa-wallet"></i></div>
+            </div>
+            <div class="kpi-value">{{ totalInvested | currency:'EUR':'symbol':'1.2-2' }}</div>
+            <div class="kpi-footer">
+              <span class="kpi-helper">Custo total de aquisição</span>
+            </div>
+          </div>
+
+          <div class="kpi-card fade-in" style="animation-delay: 0.1s;">
+            <div class="kpi-header">
+              <span class="kpi-title">VALOR DA CARTEIRA</span>
+              <div class="kpi-icon"><i class="fa-solid fa-chart-line-up"></i></div>
+            </div>
+            <div class="kpi-value value-highlight">{{ totalCurrentValue | currency:'EUR':'symbol':'1.2-2' }}</div>
+            <div class="kpi-footer">
+              <span class="kpi-helper">Valor ao dia de hoje</span>
+            </div>
+          </div>
+
+          <div class="kpi-card fade-in" style="animation-delay: 0.2s;"
+               [class.kpi-pos]="totalReturn > 0"
+               [class.kpi-neg]="totalReturn < 0">
+            <div class="kpi-header">
+              <span class="kpi-title">RETORNO TOTAL</span>
+              <div class="kpi-icon">
+                <i class="fa-solid" [ngClass]="totalReturn >= 0 ? 'fa-circle-arrow-up' : 'fa-circle-arrow-down'"></i>
+              </div>
+            </div>
+            <div class="kpi-value" [ngClass]="{'text-pos': totalReturn > 0, 'text-neg': totalReturn < 0}">
+              <span *ngIf="totalReturn > 0">+</span>{{ totalReturn | currency:'EUR':'symbol':'1.2-2' }}
+            </div>
+            <div class="kpi-footer">
+              <span class="kpi-badge" [ngClass]="{'badge-pos': totalReturn > 0, 'badge-neg': totalReturn < 0, 'badge-neutral': totalReturn === 0}">
+                <i class="fa-solid" [ngClass]="totalReturn > 0 ? 'fa-caret-up' : totalReturn < 0 ? 'fa-caret-down' : 'fa-minus'"></i>
+                {{ totalReturnPct | number:'1.2-2' }}%
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section class="allocation-section fade-in" style="animation-delay: 0.3s;" *ngIf="portfolio.length > 0">
+          <h3 class="section-title">Distribuição de Ativos</h3>
+          <div class="allocation-bar-wrapper">
+            <div class="allocation-bar">
+              <div *ngFor="let stock of portfolio; let i = index"
+                   class="allocation-segment"
+                   [style.width.%]="stock.allocationPct"
+                   [style.background]="'hsl(' + (i * 137.5 % 360) + ', 60%, 45%)'"
+                   [title]="stock.ticker + ': ' + (stock.allocationPct | number:'1.1-1') + '%'">
+              </div>
+            </div>
+            <div class="allocation-legend">
+              <div *ngFor="let stock of portfolio; let i = index" class="legend-item">
+                <span class="legend-dot" [style.background-color]="'hsl(' + (i * 137.5 % 360) + ', 60%, 45%)'"></span>
+                <span class="legend-ticker">{{ stock.ticker }}</span>
+                <span class="legend-pct">{{ stock.allocationPct | number:'1.1-1' }}%</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="table-section fade-in" style="animation-delay: 0.4s;">
+          <div class="table-card">
+            <div class="table-card-header">
+              <h3 class="table-title">Resumo da Carteira</h3>
+              <span class="pulse-indicator" [class.loading]="isLoading">
+                <span class="pulse-dot"></span>
+                {{ isLoading ? 'A atualizar preços...' : 'Preços Live' }}
+              </span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="portfolio-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Empresa</th>
+                    <th>Data da Compra</th>
+                    <th class="text-right">QT</th>
+                    <th class="text-right">PU</th>
+                    <th class="text-right col-calculated-header">Total (Custo)</th>
+                    <th class="text-right">Cotação do Dia</th>
+                    <th class="text-right col-calculated-header">Valor</th>
+                    <th class="text-right">Variação (%)</th>
+                    <th class="text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let stock of portfolio">
+                    <td>
+                      <span class="ticker-badge">{{ stock.ticker }}</span>
+                    </td>
+                    <td class="company-name-cell">{{ stock.companyName }}</td>
+                    <td>{{ stock.purchaseDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-right font-numeric">{{ stock.quantity }}</td>
+                    <td class="text-right font-numeric">{{ stock.purchasePrice | number:'1.2-2' }} €</td>
+                    <td class="text-right font-numeric col-calculated-cost">{{ stock.totalCost | number:'1.2-2' }} €</td>
+                    <td class="text-right font-numeric">{{ stock.currentPrice | number:'1.2-2' }} €</td>
+                    <td class="text-right font-numeric col-calculated-val">{{ stock.currentValue | number:'1.2-2' }} €</td>
+                    <td class="text-right font-numeric font-bold"
+                        [ngClass]="{
+                          'text-pos': (stock.variationPct ?? 0) > 0,
+                          'text-neg': (stock.variationPct ?? 0) < 0,
+                          'text-neutral': (stock.variationPct ?? 0) === 0
+                        }">
+                      <span *ngIf="(stock.variationPct ?? 0) > 0">+</span>{{ stock.variationPct | number:'1.2-2' }}%
+                    </td>
+                    <td class="text-center actions-cell">
+                      <button class="btn-action btn-sell" (click)="openSellModal(stock)" title="Vender">
+                        <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr *ngIf="portfolio.length === 0">
+                    <td colspan="10" class="text-center empty-state-row">
+                      <i class="fa-solid fa-folder-open empty-icon"></i>
+                      <p>A carteira está vazia. Adicione ações para começar a monitorizar.</p>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot *ngIf="portfolio.length > 0">
+                  <tr class="total-row">
+                    <td colspan="3">TOTAL</td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                    <td class="text-right font-numeric col-calculated-cost">{{ totalInvested | number:'1.2-2' }} €</td>
+                    <td class="text-right"></td>
+                    <td class="text-right font-numeric col-calculated-val">{{ totalCurrentValue | number:'1.2-2' }} €</td>
+                    <td class="text-right font-numeric font-bold"
+                        [ngClass]="{
+                          'text-pos': totalReturn > 0,
+                          'text-neg': totalReturn < 0,
+                          'text-neutral': totalReturn === 0
+                        }">
+                      <span *ngIf="totalReturn > 0">+</span>{{ totalReturnPct | number:'1.2-2' }}%
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div *ngIf="activeView === 'market'" class="market-view">
+      <div *ngIf="marketErrorMessage" class="alert alert-error fade-in">
+        <div class="alert-content">
+          <i class="fa-solid fa-circle-exclamation alert-icon"></i>
+          <span>{{ marketErrorMessage }}</span>
+        </div>
+        <button class="btn-text" (click)="loadMarket()">Tentar Novamente</button>
+      </div>
+
+      <section class="market-hero fade-in">
+        <div>
+          <p class="market-eyebrow">Mercado em tempo real</p>
+          <h2 class="market-title">Escolha uma ação e compre com um clique</h2>
+          <p class="market-copy">Os preços vêm da API externa do backend, com fallback local caso a chave Finnhub não esteja configurada.</p>
+        </div>
+
+        <div class="market-search-wrap">
+          <div class="form-group">
+            <label for="marketSelect">Procurar ação</label>
+            <div class="input-container">
+              <i class="fa-solid fa-magnifying-glass input-icon"></i>
+              <select id="marketSelect" name="marketSelect" [(ngModel)]="selectedMarketTicker" (ngModelChange)="onMarketSelect($event)">
+                <option value="">Todas as ações</option>
+                <option *ngFor="let s of marketStocks" [value]="s.ticker">{{ s.ticker }} — {{ s.companyName }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div *ngIf="marketLoading && marketStocks.length === 0" class="loading-container">
+        <div class="gold-spinner"></div>
+        <p>A carregar mercado e cotações live...</p>
+      </div>
+
+      <section *ngIf="!marketLoading || marketStocks.length > 0" class="market-grid-section">
+        <div class="market-grid-header">
+          <h3 class="section-title">Ações disponíveis</h3>
+          <span class="market-count">{{ filteredMarketStocks.length }} resultados</span>
+        </div>
+
+        <div class="market-grid">
+          <article *ngFor="let stock of filteredMarketStocks" class="market-card fade-in">
+            <div class="market-card-top">
+              <div>
+                <span class="ticker-badge">{{ stock.ticker }}</span>
+                <p class="market-company">{{ stock.companyName }}</p>
+              </div>
+              <span class="market-sector">{{ stock.sector }}</span>
+            </div>
+
+            <div class="market-price-block">
+              <div class="market-price">{{ stock.currentPrice | number:'1.2-2' }} €</div>
+              <span class="market-change" [ngClass]="{
+                'text-pos': stock.changePct > 0,
+                'text-neg': stock.changePct < 0,
+                'text-neutral': stock.changePct === 0
+              }">
+                <span *ngIf="stock.changePct > 0">+</span>{{ stock.changePct | number:'1.2-2' }}%
+              </span>
+            </div>
+
+            <div class="market-meta">
+              <span>Variação diária: {{ stock.change | number:'1.2-2' }} €</span>
+              <span *ngIf="stock.isMock" class="market-mock-note">Dados de demonstração</span>
+            </div>
+
+            <button class="btn btn-gold btn-block" (click)="openBuyModal(stock)">
+              <i class="fa-solid fa-bag-shopping"></i> Comprar
+            </button>
+          </article>
+        </div>
+
+        <div *ngIf="filteredMarketStocks.length === 0" class="empty-market-state">
+          <i class="fa-solid fa-magnifying-glass empty-icon"></i>
+          <p>Não foram encontrados resultados para a pesquisa atual.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+      <div class="modal-container fade-in" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 class="modal-title-text">{{ modalTitle }}</h3>
+          <button class="btn-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <form (ngSubmit)="saveStock()" class="modal-form">
+          <div class="form-row">
+            <div class="form-group col-4">
+              <label for="ticker">Ticker</label>
+              <input type="text" id="ticker" name="ticker" [(ngModel)]="formTicker" placeholder="ex: AAPL" required />
+            </div>
+            <div class="form-group col-8">
+              <label for="companyName">Nome da Empresa</label>
+              <input type="text" id="companyName" name="companyName" [(ngModel)]="formCompanyName" placeholder="ex: Apple Inc." required />
+            </div>
+          </div>
+
+          <div class="form-group" *ngIf="modalMode !== 'buy' && modalMode !== 'sell'">
+            <label for="purchaseDate">Data de Compra</label>
+            <input type="date" id="purchaseDate" name="purchaseDate" [(ngModel)]="formPurchaseDate" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label for="quantity">{{ modalMode === 'sell' ? 'Quantidade a Vender (QT)' : 'Quantidade (QT)' }}</label>
+              <input type="number" id="quantity" name="quantity" [(ngModel)]="formQuantity" min="1" step="any" required />
+              <div *ngIf="modalMode === 'sell'" class="sell-total-preview">
+                Valor total estimado: <strong>{{ sellTotalValue | number:'1.2-2' }} €</strong>
+              </div>
+              <div *ngIf="modalMode === 'buy'" class="buy-total-preview">
+                Valor total estimado: <strong>{{ buyTotalValue | number:'1.2-2' }} €</strong>
+              </div>
+            </div>
+            <div class="form-group col-6">
+              <label for="purchasePrice">Preço Unitário (PU) - €</label>
+              <div class="static-field" id="purchasePrice">{{ formPurchasePrice | number:'1.2-2' }} €</div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+            <button type="submit" class="btn btn-gold-submit">
+              {{ modalMode === 'buy' ? 'Comprar Agora' : modalMode === 'sell' ? 'Vender Agora' : 'Guardar Alterações' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay error-modal-overlay" *ngIf="showErrorModal" (click)="closeErrorModal()">
+      <div class="modal-container error-modal-container fade-in" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 class="modal-title-text error-title">{{ errorModalTitle }}</h3>
+          <button class="btn-close" (click)="closeErrorModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-form error-modal-body">
+          <div class="error-icon-wrap">
+            <i class="fa-solid fa-circle-exclamation"></i>
+          </div>
+          <p class="error-message">{{ errorModalMessage }}</p>
+
+          <div class="modal-footer error-modal-footer">
+            <button type="button" class="btn btn-gold-submit" (click)="closeErrorModal()">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
